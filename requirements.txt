@@ -1,0 +1,4 @@
+flask==2.3.3
+slack-sdk==3.20.0
+python-telegram-bot==20.0
+twilio==8.2.0
