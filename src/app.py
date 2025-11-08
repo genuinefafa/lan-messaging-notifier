@@ -118,7 +118,7 @@ def notify():
     try:
         data = request.get_json()
 
-        if not data:
+        if data is None:
             return jsonify({'error': 'Request body must be JSON'}), 400
 
         message = data.get('message')
@@ -166,6 +166,9 @@ def notify():
         }), status_code
 
     except Exception as e:
+        # Handle Flask's BadRequest exception for invalid JSON
+        if 'BadRequest' in str(type(e).__name__):
+            return jsonify({'error': 'Invalid JSON in request body'}), 400
         logger.error(f"Error in /notify endpoint: {e}")
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 

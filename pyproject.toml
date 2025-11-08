@@ -27,7 +27,6 @@ types-requests = "^2.31.0"
 
 [tool.poetry.scripts]
 start = "src.app:main"
-test = "pytest"
 
 [build-system]
 requires = ["poetry-core"]
