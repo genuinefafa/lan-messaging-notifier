@@ -39,18 +39,29 @@ The service will be available at `http://localhost:5000`
 
 ### Manual Installation
 
-1. Install Python 3.11+
+**Prerequisites:**
+- Python 3.11+
+- [Poetry](https://python-poetry.org/docs/#installation) 1.7+
 
-2. Create virtual environment:
+**Steps:**
+
+1. Install Poetry (if not already installed):
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+curl -sSL https://install.python-poetry.org | python3 -
+```
+
+2. Clone and setup:
+```bash
+git clone https://github.com/genuinefafa/lan-messaging-notifier.git
+cd lan-messaging-notifier
 ```
 
 3. Install dependencies:
 ```bash
-pip install -r requirements.txt
+poetry install
 ```
+
+This will create a virtual environment and install all dependencies with locked versions.
 
 4. Configure environment:
 ```bash
@@ -60,8 +71,14 @@ cp .env.example .env
 
 5. Run the service:
 ```bash
+# Using Poetry
+poetry run python -m src.app
+
+# Or activate the virtual environment first
+poetry shell
 python -m src.app
-# Or use the helper script:
+
+# Or use the helper script
 chmod +x run.sh
 ./run.sh
 ```
@@ -191,7 +208,10 @@ lan-messaging-notifier/
 │       └── logger.py       # Logging configuration
 ├── tests/                  # Unit tests
 ├── .env.example           # Example environment file
-├── requirements.txt       # Python dependencies
+├── .python-version        # Python version for pyenv
+├── pyproject.toml         # Poetry dependencies and project config
+├── poetry.lock            # Locked dependency versions
+├── requirements.txt       # Legacy pip requirements (for reference)
 ├── Dockerfile            # Docker image definition
 ├── docker-compose.yml    # Docker compose configuration
 └── README.md            # This file
@@ -199,28 +219,75 @@ lan-messaging-notifier/
 
 ## Development
 
+Poetry manages all dependencies and provides a consistent development environment.
+
+### Setup Development Environment
+```bash
+# Install all dependencies including dev dependencies
+poetry install
+
+# Activate virtual environment
+poetry shell
+```
+
 ### Running Tests
 ```bash
-# Install dev dependencies
-pip install -r requirements.txt
+# Run tests with Poetry
+poetry run pytest
 
-# Run tests
+# Or if inside Poetry shell
 pytest
 
 # Run with coverage
-pytest --cov=src --cov-report=html
+poetry run pytest --cov=src --cov-report=html
+
+# Watch mode (requires pytest-watch)
+poetry run ptw
 ```
 
 ### Code Quality
 ```bash
 # Format code
-black src/ tests/
+poetry run black src/ tests/
 
 # Lint code
-flake8 src/ tests/
+poetry run flake8 src/ tests/
 
 # Type checking
-mypy src/
+poetry run mypy src/
+
+# Run all quality checks
+poetry run black src/ tests/ && poetry run flake8 src/ tests/ && poetry run mypy src/
+```
+
+### Managing Dependencies
+```bash
+# Add a new dependency
+poetry add package-name
+
+# Add a dev dependency
+poetry add --group dev package-name
+
+# Update dependencies
+poetry update
+
+# Show installed packages
+poetry show
+
+# Export requirements.txt (for compatibility)
+poetry export -f requirements.txt --output requirements.txt --without-hashes
+```
+
+### Poetry Commands
+```bash
+# Show virtual environment info
+poetry env info
+
+# List available virtual environments
+poetry env list
+
+# Remove virtual environment
+poetry env remove python3.11
 ```
 
 ## Use Cases

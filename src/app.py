@@ -200,8 +200,13 @@ def create_app():
     return app
 
 
-if __name__ == '__main__':
+def main():
+    """Main entry point for the application."""
     app = create_app()
     logger.info(f"Starting LAN Messaging Notifier on {config.host}:{config.port}")
     logger.info(f"Enabled platforms: {list(notifiers.keys())}")
     app.run(host=config.host, port=config.port, debug=config.debug)
+
+
+if __name__ == '__main__':
+    main()

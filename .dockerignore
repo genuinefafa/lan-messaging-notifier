@@ -9,6 +9,10 @@ venv/
 ENV/
 .venv
 
+# Poetry
+poetry.lock
+.poetry/
+
 # Tests
 tests/
 .pytest_cache/
@@ -37,3 +41,6 @@ docs/
 # Environment
 .env
 .env.local
+
+# Python version
+.python-version

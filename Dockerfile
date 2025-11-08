@@ -1,26 +1,32 @@
-# Multi-stage build for smaller image size
+# Multi-stage build with Poetry
 FROM python:3.11-slim as builder
+
+# Install Poetry
+RUN pip install --no-cache-dir poetry==1.7.1
 
 WORKDIR /app
 
+# Copy dependency files
+COPY pyproject.toml poetry.lock* ./
+
+# Configure Poetry to not create virtual env (we're already in a container)
+RUN poetry config virtualenvs.create false
+
 # Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN poetry install --no-dev --no-interaction --no-ansi
 
 # Final stage
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy dependencies from builder
-COPY --from=builder /root/.local /root/.local
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY src/ ./src/
 COPY .env.example .env
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
 
 # Expose port
 EXPOSE 5000
