@@ -25,15 +25,14 @@ def client():
             mock_slack_instance.test_connection.return_value = True
             mock_slack.return_value = mock_slack_instance
 
-            # Import app after patching
-            from src.app import app
+            # Import app module after patching
+            import src.app as app_module
 
             # Trigger startup event manually
             with patch('src.app.initialize_notifiers'):
-                client = TestClient(app)
+                client = TestClient(app_module.app)
 
                 # Manually set notifiers for tests
-                import src.app as app_module
                 app_module.notifiers = {'slack': mock_slack_instance}
 
                 yield client

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lan-messaging-notifier"
-version = "0.1.0"
+version = "0.2.0"
 description = "Centralized notification service for LAN - send messages to Slack, Telegram, and WhatsApp"
 authors = ["genuinefafa"]
 readme = "README.md"

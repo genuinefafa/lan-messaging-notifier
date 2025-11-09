@@ -1,7 +1,7 @@
 """Base notifier class - Interface para todos los notificadores."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 
 class BaseNotifier(ABC):

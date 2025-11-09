@@ -1,9 +1,9 @@
 """FastAPI application for LAN Messaging Notifier."""
 
 from fastapi import FastAPI, HTTPException, status
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
+from contextlib import asynccontextmanager
 import logging
 
 from .config import config
@@ -55,15 +55,6 @@ class TestResponse(BaseModel):
     pass
 
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="LAN Messaging Notifier",
-    description="Centralized notification service for LAN - send messages to Slack, Telegram, and WhatsApp",
-    version="0.2.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
-
 # Configure logging based on debug setting
 if config.debug:
     setup_logger(level=logging.DEBUG)
@@ -112,9 +103,10 @@ def initialize_notifiers():
         logger.warning("No notifiers were initialized!")
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize notifiers on application startup."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events."""
+    # Startup
     try:
         config.validate()
         initialize_notifiers()
@@ -122,6 +114,22 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to initialize application: {e}")
         raise
+
+    yield
+
+    # Shutdown
+    logger.info("Application shutting down")
+
+
+# Initialize FastAPI app with lifespan
+app = FastAPI(
+    title="LAN Messaging Notifier",
+    description="Centralized notification service for LAN - send messages to Slack, Telegram, and WhatsApp",
+    version="0.2.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan
+)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
