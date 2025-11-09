@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  lan-notifier:
+    build: .
+    container_name: lan-messaging-notifier
+    ports:
+      - "5000:5000"
+    environment:
+      # Flask config
+      - DEBUG=false
+      - HOST=0.0.0.0
+      - PORT=5000
+
+      # Slack (uncomment and configure)
+      # - SLACK_TOKEN=${SLACK_TOKEN}
+      # - SLACK_CHANNEL=${SLACK_CHANNEL:-#general}
+
+      # Telegram (uncomment and configure)
+      # - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      # - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+
+      # WhatsApp via Twilio (uncomment and configure)
+      # - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      # - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      # - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER}
+      # - WHATSAPP_TO_NUMBER=${WHATSAPP_TO_NUMBER}
+
+    # Use .env file if present
+    env_file:
+      - .env
+
+    restart: unless-stopped
+
+    networks:
+      - lan-network
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  lan-network:
+    driver: bridge
