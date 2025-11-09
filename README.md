@@ -7,7 +7,9 @@ A centralized notification service for your LAN that receives messages via REST 
 ## Features
 
 - **Multi-platform support**: Send notifications to Slack, Telegram, and WhatsApp
-- **REST API**: Simple HTTP API for sending messages from any application
+- **Modern FastAPI framework**: High-performance async API with automatic validation
+- **Interactive API docs**: Automatic OpenAPI/Swagger documentation at `/docs`
+- **Type safety**: Pydantic models for request/response validation
 - **Flexible configuration**: Enable only the platforms you need
 - **Docker support**: Easy deployment with Docker and docker-compose
 - **Health checks**: Monitor service status and platform connectivity
@@ -132,6 +134,16 @@ To get Twilio credentials:
 3. Set up WhatsApp sandbox or production number
 
 **Note**: At least one platform must be configured for the service to start.
+
+## API Documentation
+
+FastAPI provides automatic interactive API documentation:
+
+- **Swagger UI**: Navigate to `http://localhost:5000/docs` for interactive API testing
+- **ReDoc**: Alternative docs at `http://localhost:5000/redoc`
+- **OpenAPI JSON**: Raw schema at `http://localhost:5000/openapi.json`
+
+The interactive docs let you test all endpoints directly from your browser!
 
 ## API Usage
 
@@ -388,4 +400,4 @@ Potential future enhancements:
 
 ---
 
-Built with Python, Flask, and modern notification APIs.
+Built with Python, FastAPI, and modern notification APIs.

@@ -1,7 +1,9 @@
-"""Flask application for LAN Messaging Notifier."""
+"""FastAPI application for LAN Messaging Notifier."""
 
-from flask import Flask, request, jsonify
-from typing import Dict, Any, List
+from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
 import logging
 
 from .config import config
@@ -9,12 +11,62 @@ from .notifiers import SlackNotifier, TelegramNotifier, WhatsAppNotifier
 from .utils.logger import setup_logger, logger
 
 
-app = Flask(__name__)
+# Pydantic models for request/response validation
+class NotifyRequest(BaseModel):
+    """Request model for notification endpoint."""
+    message: str = Field(..., description="Message to send", min_length=1)
+    platforms: Optional[List[str]] = Field(
+        None,
+        description="List of platforms to send to (defaults to all enabled)"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "Hello from LAN!",
+                "platforms": ["slack", "telegram"]
+            }
+        }
+
+
+class PlatformResult(BaseModel):
+    """Result for a single platform."""
+    success: bool
+    error: Optional[str] = None
+
+
+class NotifyResponse(BaseModel):
+    """Response model for notification endpoint."""
+    message: str
+    total_platforms: int
+    successful: int
+    results: Dict[str, PlatformResult]
+
+
+class HealthResponse(BaseModel):
+    """Response model for health check."""
+    status: str
+    enabled_platforms: List[str]
+    version: str
+
+
+class TestResponse(BaseModel):
+    """Response model for connection tests."""
+    pass
+
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="LAN Messaging Notifier",
+    description="Centralized notification service for LAN - send messages to Slack, Telegram, and WhatsApp",
+    version="0.2.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
 # Configure logging based on debug setting
 if config.debug:
     setup_logger(level=logging.DEBUG)
-    app.config['DEBUG'] = True
 
 # Initialize notifiers
 notifiers = {}
@@ -60,28 +112,38 @@ def initialize_notifiers():
         logger.warning("No notifiers were initialized!")
 
 
-@app.route('/health', methods=['GET'])
-def health_check():
+@app.on_event("startup")
+async def startup_event():
+    """Initialize notifiers on application startup."""
+    try:
+        config.validate()
+        initialize_notifiers()
+        logger.info(f"Application started with platforms: {list(notifiers.keys())}")
+    except Exception as e:
+        logger.error(f"Failed to initialize application: {e}")
+        raise
+
+
+@app.get("/health", response_model=HealthResponse, tags=["Health"])
+async def health_check():
     """
     Health check endpoint.
 
-    Returns:
-        JSON with service status and enabled platforms
+    Returns service status and enabled platforms.
     """
-    return jsonify({
-        'status': 'healthy',
-        'enabled_platforms': list(notifiers.keys()),
-        'version': '0.1.0'
-    }), 200
+    return HealthResponse(
+        status="healthy",
+        enabled_platforms=list(notifiers.keys()),
+        version="0.2.0"
+    )
 
 
-@app.route('/test', methods=['GET'])
-def test_connections():
+@app.get("/test", tags=["Health"])
+async def test_connections() -> Dict[str, Dict[str, Any]]:
     """
     Test connections to all enabled platforms.
 
-    Returns:
-        JSON with connection test results for each platform
+    Returns connection test results for each platform.
     """
     results = {}
 
@@ -98,42 +160,33 @@ def test_connections():
             }
             logger.error(f"Connection test failed for {platform}: {e}")
 
-    return jsonify(results), 200
+    return results
 
 
-@app.route('/notify', methods=['POST'])
-def notify():
+@app.post("/notify", response_model=NotifyResponse, tags=["Notifications"])
+async def notify(request: NotifyRequest):
     """
     Send notifications to specified platforms.
 
-    Request JSON:
-        {
-            "message": "Your message here",
-            "platforms": ["slack", "telegram", "whatsapp"]  # optional, defaults to all
-        }
+    - **message**: The message text to send (required)
+    - **platforms**: List of platforms to send to (optional, defaults to all enabled)
 
-    Returns:
-        JSON with send results for each platform
+    Returns results for each platform.
     """
     try:
-        data = request.get_json()
-
-        if data is None:
-            return jsonify({'error': 'Request body must be JSON'}), 400
-
-        message = data.get('message')
-        if not message:
-            return jsonify({'error': 'Missing required field: message'}), 400
-
-        platforms = data.get('platforms', list(notifiers.keys()))
+        # Use all platforms if not specified
+        platforms = request.platforms if request.platforms else list(notifiers.keys())
 
         # Validate platforms
         invalid_platforms = [p for p in platforms if p not in notifiers]
         if invalid_platforms:
-            return jsonify({
-                'error': f'Invalid or disabled platforms: {invalid_platforms}',
-                'available_platforms': list(notifiers.keys())
-            }), 400
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    'error': f'Invalid or disabled platforms: {invalid_platforms}',
+                    'available_platforms': list(notifiers.keys())
+                }
+            )
 
         # Send to each platform
         results = {}
@@ -142,73 +195,64 @@ def notify():
         for platform in platforms:
             try:
                 notifier = notifiers[platform]
-                success = notifier.send_message(message)
-                results[platform] = {
-                    'success': success,
-                    'error': None
-                }
+                success = notifier.send_message(request.message)
+                results[platform] = PlatformResult(
+                    success=success,
+                    error=None
+                )
                 if success:
                     success_count += 1
             except Exception as e:
-                results[platform] = {
-                    'success': False,
-                    'error': str(e)
-                }
+                results[platform] = PlatformResult(
+                    success=False,
+                    error=str(e)
+                )
                 logger.error(f"Failed to send to {platform}: {e}")
 
-        status_code = 200 if success_count > 0 else 500
+        # Return 500 if no messages were sent successfully
+        if success_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    'message': 'Failed to send to any platform',
+                    'total_platforms': len(platforms),
+                    'successful': 0,
+                    'results': {k: {'success': v.success, 'error': v.error} for k, v in results.items()}
+                }
+            )
 
-        return jsonify({
-            'message': 'Notifications sent',
-            'total_platforms': len(platforms),
-            'successful': success_count,
-            'results': results
-        }), status_code
+        return NotifyResponse(
+            message="Notifications sent",
+            total_platforms=len(platforms),
+            successful=success_count,
+            results=results
+        )
 
-    except Exception as e:
-        # Handle Flask's BadRequest exception for invalid JSON
-        if 'BadRequest' in str(type(e).__name__):
-            return jsonify({'error': 'Invalid JSON in request body'}), 400
-        logger.error(f"Error in /notify endpoint: {e}")
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
-
-
-@app.errorhandler(404)
-def not_found(error):
-    """Handle 404 errors."""
-    return jsonify({'error': 'Endpoint not found'}), 404
-
-
-@app.errorhandler(500)
-def internal_error(error):
-    """Handle 500 errors."""
-    logger.error(f"Internal server error: {error}")
-    return jsonify({'error': 'Internal server error'}), 500
-
-
-def create_app():
-    """
-    Application factory.
-
-    Returns:
-        Configured Flask app
-    """
-    try:
-        config.validate()
-        initialize_notifiers()
-    except Exception as e:
-        logger.error(f"Failed to initialize application: {e}")
+    except HTTPException:
         raise
-
-    return app
+    except Exception as e:
+        logger.error(f"Error in /notify endpoint: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Internal server error: {str(e)}'
+        )
 
 
 def main():
     """Main entry point for the application."""
-    app = create_app()
+    import uvicorn
+
     logger.info(f"Starting LAN Messaging Notifier on {config.host}:{config.port}")
     logger.info(f"Enabled platforms: {list(notifiers.keys())}")
-    app.run(host=config.host, port=config.port, debug=config.debug)
+    logger.info("API Documentation available at http://localhost:5000/docs")
+
+    uvicorn.run(
+        "src.app:app",
+        host=config.host,
+        port=config.port,
+        reload=config.debug,
+        log_level="debug" if config.debug else "info"
+    )
 
 
 if __name__ == '__main__':
