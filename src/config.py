@@ -1,7 +1,7 @@
 """Configuration management for the notifier service."""
 
 import os
-from typing import Dict, Any, Optional
+from typing import Optional
 from dataclasses import dataclass
 
 

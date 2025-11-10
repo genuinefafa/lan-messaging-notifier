@@ -52,10 +52,8 @@ class TelegramNotifier(BaseNotifier):
         chat_id = kwargs.get('chat_id', self.config['chat_id'])
 
         try:
-            # Use async method with proper await - for sync context we'll use a different approach
+            # Use asyncio.run() to safely handle async call
             import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
 
             async def send():
                 return await self.bot.send_message(
@@ -63,8 +61,7 @@ class TelegramNotifier(BaseNotifier):
                     text=message
                 )
 
-            result = loop.run_until_complete(send())
-            loop.close()
+            result = asyncio.run(send())
 
             logger.info(f"Message sent to Telegram chat {chat_id}: {result.message_id}")
             return True
@@ -85,14 +82,11 @@ class TelegramNotifier(BaseNotifier):
 
         try:
             import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
 
             async def get_me():
                 return await self.bot.get_me()
 
-            me = loop.run_until_complete(get_me())
-            loop.close()
+            me = asyncio.run(get_me())
 
             logger.info(f"Telegram connection OK - Bot: @{me.username}")
             return True
